@@ -58,10 +58,11 @@ async function buildReport(localDate = dates.localDate()) {
     parts.push(`\n\n⚠️ <b>OTA-ONA SHIKOYATLARI (${complaints.length})</b>`);
     for (const issue of complaints) {
       const icon = SEVERITY_ICON[issue.severity] || "🟠";
+      // Asl xabar matni ko'rsatilmaydi — muammo mohiyati va kim yozgani yetarli.
+      // (Matn bazada `excerpt` da saqlanadi, kerak bo'lsa qarash mumkin.)
       parts.push(
         `\n${icon} <b>${escapeHtml(issue.groupTitle || issue.chatId)}</b> — ${escapeHtml(issue.userName)}\n` +
-          `   ${escapeHtml(issue.summary)}\n` +
-          `   <i>"${escapeHtml(issue.excerpt.slice(0, 150))}"</i>`
+          `   ${escapeHtml(issue.summary)}`
       );
     }
   }
