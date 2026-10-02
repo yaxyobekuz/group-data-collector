@@ -1,6 +1,7 @@
 const User = require("../models/User");
 const Group = require("../models/Group");
 const Issue = require("../models/Issue");
+const Message = require("../models/Message");
 const roleService = require("../services/roleService");
 const reportService = require("../services/reportService");
 const monitorService = require("../services/monitorService");
@@ -72,7 +73,8 @@ function register(bot) {
         "/staff — adminlar va o'qituvchilar",
         "/assign — guruhga o'qituvchi biriktirish",
         "/monitor on|off — guruh nazoratini boshqarish",
-        "/runcheck — tekshiruvni hozir ishga tushirish"
+        "/runcheck — tekshiruvni hozir ishga tushirish",
+        "/cleanup — ishlamaydigan guruh yozuvlarini tozalash"
       );
     }
 
@@ -190,9 +192,35 @@ function register(bot) {
         return;
       }
 
-      await ctx.reply(`✅ ${escapeHtml(displayName(result.user))} — endi <b>${label}</b>`, {
-        parse_mode: "HTML",
-      });
+      const lines = [`✅ ${escapeHtml(displayName(result.user))} — endi <b>${label}</b>`];
+
+      // Bugungi xabarlari ham yangilandi (kechqurungi tekshiruv to'g'ri ishlashi uchun)
+      if (result.updatedMessages > 0) {
+        lines.push(`   Bugungi ${result.updatedMessages} ta xabari qayta hisobga olindi.`);
+      }
+
+      // O'qituvchini GURUHDA belgilasak — o'sha guruhga darhol biriktiramiz,
+      // alohida /assign qilish shart bo'lmasin
+      if (role === "teacher" && ctx.chat?.type !== "private") {
+        await Group.findOneAndUpdate(
+          { chatId: ctx.chat.id },
+          {
+            $addToSet: { teacherIds: userId },
+            $set: { title: ctx.chat.title || "", isActive: true },
+          },
+          { upsert: true, setDefaultsOnInsert: true }
+        );
+        lines.push(`   Bu guruhga biriktirildi: <b>${escapeHtml(ctx.chat.title || "")}</b>`);
+      } else if (role === "teacher") {
+        lines.push(
+          "",
+          "ℹ️ Bu shaxsiy chat, shuning uchun hech qaysi guruhga biriktirilmadi.",
+          "Biriktirish uchun guruhda <code>/assign " + userId + "</code> yuboring " +
+            "(yoki guruhning o'zida /setteacher qiling)."
+        );
+      }
+
+      await ctx.reply(lines.join("\n"), { parse_mode: "HTML" });
       logger.info(`Rol o'zgardi: ${userId} -> ${role} (owner ${ctx.from.id})`);
     });
   };
@@ -300,6 +328,46 @@ function register(bot) {
     await ctx.reply(
       arg === "on" ? "👁 Bu guruh nazoratga olindi." : "💤 Bu guruh nazoratdan chiqarildi."
     );
+  });
+
+  bot.command("cleanup", async (ctx) => {
+    if (!roleService.isOwner(ctx.from?.id)) {
+      await ctx.reply("⛔️ Bu buyruq faqat owner uchun.");
+      return;
+    }
+
+    // Guruh supergruppaga o'tkazilganda eski chatId bilan yozuv qolib ketadi.
+    // Bot eski guruhdan boshqa xabar olmaydi, shuning uchun uni topish uchun
+    // Telegram dan so'raymiz — javob bermasa, bu o'lik yozuv.
+    const groups = await Group.find().lean();
+    const dead = [];
+
+    for (const group of groups) {
+      try {
+        await ctx.api.getChat({ chat_id: group.chatId });
+      } catch (err) {
+        dead.push({ group, reason: err.message });
+      }
+    }
+
+    if (!dead.length) {
+      await ctx.reply(
+        `✅ Hammasi joyida.\n\n${groups.length} ta guruh tekshirildi, ortiqcha yozuv topilmadi.`
+      );
+      return;
+    }
+
+    const lines = ["🧹 <b>Ishlamaydigan guruh yozuvlari</b>", ""];
+    for (const { group } of dead) {
+      await Group.deleteOne({ chatId: group.chatId });
+      await Message.deleteMany({ chatId: group.chatId });
+      await Issue.deleteMany({ chatId: group.chatId });
+      lines.push(`🗑 <b>${escapeHtml(group.title || group.chatId)}</b> (<code>${group.chatId}</code>)`);
+    }
+
+    lines.push("", `O'chirildi: ${dead.length} ta. Qoldi: ${groups.length - dead.length} ta.`);
+    await ctx.reply(lines.join("\n"), { parse_mode: "HTML" });
+    logger.info(`Tozalash: ${dead.length} ta o'lik guruh yozuvi o'chirildi`);
   });
 
   bot.command("runcheck", async (ctx) => {

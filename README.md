@@ -67,6 +67,8 @@ Bot guruhga qo'shilganda avtomatik nazoratga olinadi.
 
 ### 2. O'qituvchilarni belgilash
 
+> ⚠️ **Buni GURUHNING O'ZIDA qiling**, shaxsiy chatda emas.
+
 Guruhda o'qituvchining xabariga **reply** qilib:
 
 ```
@@ -75,9 +77,17 @@ Guruhda o'qituvchining xabariga **reply** qilib:
 
 Yoki ID bilan: `/setteacher 123456789`
 
-### 3. O'qituvchini guruhga biriktirish (ixtiyoriy)
+Guruhda bajarilsa, bot ikkita ishni birvarakayiga qiladi:
 
-Guruhda turib:
+1. odamga o'qituvchi rolini beradi
+2. **shu guruhga avtomatik biriktiradi** — alohida `/assign` shart emas
+
+Shaxsiy chatda qilsangiz, faqat rol beriladi va bot sizga guruhda
+`/assign` qilish kerakligini eslatadi.
+
+### 3. O'qituvchini boshqa guruhga biriktirish
+
+Bir o'qituvchi bir necha sinfga dars bersa, har bir guruhda:
 
 ```
 /assign 123456789
@@ -126,6 +136,7 @@ Adminlar ertalabki hisobotni avtomatik oladi.
 | `/assign` | Guruhga o'qituvchi biriktirish |
 | `/monitor on\|off` | Guruh nazoratini boshqarish (ta'til uchun) |
 | `/runcheck` | Tekshiruvni darhol ishga tushirish |
+| `/cleanup` | Ishlamaydigan guruh yozuvlarini tozalash |
 
 ## Struktura
 
@@ -200,7 +211,26 @@ Yakshanba tekshirilmaydi, shuning uchun dushanba ertalabki hisobot
 ### 5. Rol xabar bilan saqlanadi
 
 `Message.senderRole` — xabar yuborilgan paytdagi rol. Keyin odamning roli
-o'zgarsa, eski tahlil buzilmaydi.
+o'zgarsa, o'tgan kunlar hisoboti buzilmaydi.
+
+**Lekin bugungi kun istisno.** O'qituvchi ertalab vazifa yuborib, siz uni
+tushdan keyin `/setteacher` qilsangiz — eski xabar `parent` bo'lib qolardi va
+kechqurungi tekshiruv vazifani ko'rmay "yubormagan" deb hisobot berardi.
+Shuning uchun `setRole()` **o'sha kungi** xabarlarning rolini ham yangilaydi
+([roleService.js](src/services/roleService.js)). O'tgan kunlarga tegilmaydi.
+
+### 6. Guruh supergruppaga o'tkazilganda
+
+Telegram guruhni supergruppaga o'tkazganda **chatId ni o'zgartiradi**. Bot
+buni sezmasa, bitta guruh bazada ikki marta turadi va tekshiruvda ikki marta
+sanaladi ("Guruhlar: 2" — aslida bitta), eski yozuv esa doim "vazifa
+yuborilmagan" beradi.
+
+Bot `migrate_to_chat_id` xabarini tutib, eski yozuvni yangisiga ko'chiradi:
+sozlamalar, biriktirilgan o'qituvchilar va xabarlar saqlanadi.
+
+Bot ishlamagan paytda migratsiya bo'lib qolgan bo'lsa, `/cleanup` eski o'lik
+yozuvlarni topib o'chiradi (Telegram dan so'rab tekshiradi).
 
 ## Ma'lumotlar bazasi
 

@@ -1,5 +1,8 @@
 const User = require("../models/User");
+const Message = require("../models/Message");
 const config = require("../config");
+const dates = require("../utils/dates");
+const logger = require("../utils/logger");
 
 /**
  * Foydalanuvchini bazaga yozadi/yangilaydi va rolini qaytaradi.
@@ -72,7 +75,26 @@ async function setRole(telegramId, role, setBy) {
     { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
   );
 
-  return { ok: true, user };
+  // BUGUNGI xabarlarning rolini ham yangilaymiz.
+  //
+  // Sabab: o'qituvchi ertalab vazifa yuboradi, owner esa uni tushdan keyin
+  // /setteacher qiladi. Agar eski xabarlar "parent" bo'lib qolsa, kechqurungi
+  // tekshiruv vazifani ko'rmaydi va "yubormagan" deb hisobot beradi.
+  //
+  // Faqat bugungi kun yangilanadi — o'tgan kunlar hisoboti o'zgarmasligi uchun.
+  const today = dates.localDate();
+  const updated = await Message.updateMany(
+    { userId: telegramId, localDate: today },
+    { $set: { senderRole: role } }
+  );
+
+  if (updated.modifiedCount > 0) {
+    logger.info(
+      `${telegramId}: bugungi ${updated.modifiedCount} ta xabar roli "${role}" ga yangilandi`
+    );
+  }
+
+  return { ok: true, user, updatedMessages: updated.modifiedCount };
 }
 
 async function listByRole(role) {
