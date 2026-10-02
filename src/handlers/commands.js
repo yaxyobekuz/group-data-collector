@@ -59,7 +59,8 @@ function register(bot) {
         "/report — bugungi hisobot",
         "/report 2026-10-01 — tanlangan kun hisoboti",
         "/groups — guruhlar ro'yxati",
-        "/issues — oxirgi muammolar"
+        "/issues — oxirgi muammolar",
+        "/status — tizim holati (nosozlik bormi?)"
       );
     }
 
@@ -399,6 +400,86 @@ function register(bot) {
     } else {
       lines.push("Barcha guruhlar bilan bog'lanish bor.");
     }
+
+    await ctx.reply(lines.join("\n"), { parse_mode: "HTML" });
+  });
+
+  bot.command("status", async (ctx) => {
+    if (!(await roleService.isAdminOrOwner(ctx.from?.id))) {
+      await ctx.reply("⛔️ Bu buyruq adminlar uchun.");
+      return;
+    }
+
+    const me = await ctx.api.getMe();
+    const [groups, teachers, admins, todayMsgs] = await Promise.all([
+      Group.find({ isMonitored: true, isActive: true }).lean(),
+      roleService.listByRole("teacher"),
+      roleService.listByRole("admin"),
+      Message.countDocuments({ localDate: dates.localDate() }),
+    ]);
+
+    const lines = ["🩺 <b>Tizim holati</b>", ""];
+
+    // 1. Privacy Mode — eng ko'p uchraydigan nosozlik
+    if (me.can_read_all_group_messages === false) {
+      lines.push(
+        "❌ <b>Privacy Mode YOQILGAN</b>",
+        "   Bot guruhda faqat buyruqlarni ko'radi!",
+        "   Vazifa ham, shikoyat ham yig'ilmaydi.",
+        "",
+        "   Tuzatish: @BotFather → /mybots → Bot Settings",
+        "   → Group Privacy → Turn off",
+        "   Keyin botni guruhdan chiqarib, qayta qo'shing.",
+        ""
+      );
+    } else {
+      lines.push("✅ Privacy Mode o'chirilgan — barcha xabarlar ko'rinadi", "");
+    }
+
+    // 2. Guruhlar
+    if (!groups.length) {
+      lines.push(
+        "❌ <b>Nazoratdagi guruh yo'q</b>",
+        "   Botni guruhga qo'shib, admin qiling.",
+        "   Guruh birinchi xabardan keyin avtomatik qo'shiladi.",
+        ""
+      );
+    } else {
+      lines.push(`✅ Nazoratdagi guruhlar: <b>${groups.length}</b>`);
+      for (const g of groups) {
+        const assigned = g.teacherIds?.length
+          ? `${g.teacherIds.length} o'qituvchi`
+          : "⚠️ o'qituvchi biriktirilmagan";
+        lines.push(`   • ${escapeHtml(g.title || g.chatId)} — ${assigned}`);
+      }
+      lines.push("");
+    }
+
+    // 3. O'qituvchilar
+    if (!teachers.length) {
+      lines.push(
+        "❌ <b>O'qituvchi belgilanmagan</b>",
+        "   Guruhda ustoz xabariga reply qilib: /setteacher",
+        ""
+      );
+    } else {
+      lines.push(`✅ O'qituvchilar: <b>${teachers.length}</b>`, "");
+    }
+
+    // 4. Adminlar
+    lines.push(
+      admins.length
+        ? `✅ Adminlar: <b>${admins.length}</b> (+ owner)`
+        : "ℹ️ Admin yo'q — hisobot faqat owner ga boradi",
+      ""
+    );
+
+    // 5. Bugungi faollik
+    lines.push(
+      todayMsgs > 0
+        ? `✅ Bugun yig'ilgan xabarlar: <b>${todayMsgs}</b>`
+        : "⚠️ Bugun hali hech qanday xabar yig'ilmagan"
+    );
 
     await ctx.reply(lines.join("\n"), { parse_mode: "HTML" });
   });

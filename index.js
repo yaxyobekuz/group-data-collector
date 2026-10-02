@@ -25,6 +25,21 @@ async function main() {
   logger.info(`Bot ishga tushdi: @${me.username} (${config.mode} rejimi)`);
   logger.info(`Owner ID: ${config.ownerId}`);
 
+  // Privacy Mode yoqiq bo'lsa, bot guruhda faqat buyruqlarni ko'radi —
+  // ya'ni na vazifa, na ota-ona shikoyatlari yig'ilmaydi. Buyruqlar ishlagani
+  // uchun bu nosozlik sezilmay qoladi, shuning uchun baland ovozda ogohlantiramiz.
+  if (me.can_read_all_group_messages === false) {
+    logger.error("=".repeat(62));
+    logger.error("DIQQAT: Privacy Mode YOQILGAN!");
+    logger.error("Bot guruhda faqat /buyruqlarni ko'radi, oddiy xabarlarni EMAS.");
+    logger.error("Ya'ni vazifa ham, ota-ona shikoyatlari ham yig'ilmaydi.");
+    logger.error("");
+    logger.error("Tuzatish: @BotFather -> /mybots -> @" + me.username);
+    logger.error("  -> Bot Settings -> Group Privacy -> Turn off");
+    logger.error("Keyin botni guruhdan CHIQARIB, QAYTA qo'shing.");
+    logger.error("=".repeat(62));
+  }
+
   if (!aiService.isEnabled()) {
     logger.warn(
       "OPENAI_API_KEY sozlanmagan — vazifa tekshiruvi oddiy qoida bilan " +
