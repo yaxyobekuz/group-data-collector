@@ -74,7 +74,8 @@ function register(bot) {
         "/assign — guruhga o'qituvchi biriktirish",
         "/monitor on|off — guruh nazoratini boshqarish",
         "/runcheck — tekshiruvni hozir ishga tushirish",
-        "/cleanup — ishlamaydigan guruh yozuvlarini tozalash"
+        "/cleanup — guruhlar holatini tekshirish",
+        "/forget CHATID — guruh yozuvini o'chirish"
       );
     }
 
@@ -337,37 +338,107 @@ function register(bot) {
     }
 
     // Guruh supergruppaga o'tkazilganda eski chatId bilan yozuv qolib ketadi.
-    // Bot eski guruhdan boshqa xabar olmaydi, shuning uchun uni topish uchun
-    // Telegram dan so'raymiz — javob bermasa, bu o'lik yozuv.
+    // Telegram dan so'rab, javob bermaydiganlarini topamiz.
+    //
+    // MUHIM: bu buyruq HECH NARSA O'CHIRMAYDI, faqat ko'rsatadi.
+    // "chat not found" javobi ikki xil holatda keladi:
+    //   1. guruh haqiqatan yo'q (supergruppaga o'tgan, eski yozuv qoldi)
+    //   2. bot guruhdan vaqtincha chiqarilgan — guruh TIRIK
+    // Ikkalasini farqlab bo'lmaydi, shuning uchun o'chirish qarorini
+    // owner o'zi qabul qiladi: /forget <chatId>
     const groups = await Group.find().lean();
-    const dead = [];
+    if (!groups.length) {
+      await ctx.reply("Bazada hech qanday guruh yo'q.");
+      return;
+    }
+
+    const alive = [];
+    const unreachable = [];
 
     for (const group of groups) {
       try {
         await ctx.api.getChat({ chat_id: group.chatId });
-      } catch (err) {
-        dead.push({ group, reason: err.message });
+        alive.push(group);
+      } catch {
+        unreachable.push(group);
       }
     }
 
-    if (!dead.length) {
+    const lines = ["🔎 <b>Guruhlar holati</b>", ""];
+
+    if (alive.length) {
+      lines.push(`✅ <b>Ishlayapti (${alive.length})</b>`);
+      for (const g of alive) {
+        lines.push(`   • ${escapeHtml(g.title || g.chatId)} — <code>${g.chatId}</code>`);
+      }
+      lines.push("");
+    }
+
+    if (unreachable.length) {
+      const counts = [];
+      for (const g of unreachable) {
+        const msgs = await Message.countDocuments({ chatId: g.chatId });
+        counts.push({ group: g, msgs });
+      }
+
+      lines.push(`⚠️ <b>Bog'lanib bo'lmadi (${unreachable.length})</b>`);
+      for (const { group, msgs } of counts) {
+        lines.push(
+          `   • ${escapeHtml(group.title || group.chatId)} — <code>${group.chatId}</code>`,
+          `     ${msgs} ta xabar`
+        );
+      }
+      lines.push(
+        "",
+        "Bu ikki narsani bildirishi mumkin:",
+        "• guruh supergruppaga o'tgan (eski yozuv — o'chirsa bo'ladi)",
+        "• <b>bot guruhdan chiqarilgan</b> (guruh tirik — o'chirmang!)",
+        "",
+        "Ishonchingiz komil bo'lsa: <code>/forget CHATID</code>"
+      );
+    } else {
+      lines.push("Barcha guruhlar bilan bog'lanish bor.");
+    }
+
+    await ctx.reply(lines.join("\n"), { parse_mode: "HTML" });
+  });
+
+  bot.command("forget", async (ctx) => {
+    if (!roleService.isOwner(ctx.from?.id)) {
+      await ctx.reply("⛔️ Bu buyruq faqat owner uchun.");
+      return;
+    }
+
+    const arg = (typeof ctx.match === "string" ? ctx.match : "").trim();
+    const chatId = Number(arg);
+
+    if (!Number.isInteger(chatId) || chatId === 0) {
       await ctx.reply(
-        `✅ Hammasi joyida.\n\n${groups.length} ta guruh tekshirildi, ortiqcha yozuv topilmadi.`
+        "Guruh ID sini ko'rsating:\n<code>/forget -1001234567890</code>\n\n" +
+          "ID larni ko'rish: /cleanup yoki /groups",
+        { parse_mode: "HTML" }
       );
       return;
     }
 
-    const lines = ["🧹 <b>Ishlamaydigan guruh yozuvlari</b>", ""];
-    for (const { group } of dead) {
-      await Group.deleteOne({ chatId: group.chatId });
-      await Message.deleteMany({ chatId: group.chatId });
-      await Issue.deleteMany({ chatId: group.chatId });
-      lines.push(`🗑 <b>${escapeHtml(group.title || group.chatId)}</b> (<code>${group.chatId}</code>)`);
+    const group = await Group.findOne({ chatId }).lean();
+    if (!group) {
+      await ctx.reply(`❌ <code>${chatId}</code> bazada topilmadi.`, { parse_mode: "HTML" });
+      return;
     }
 
-    lines.push("", `O'chirildi: ${dead.length} ta. Qoldi: ${groups.length - dead.length} ta.`);
-    await ctx.reply(lines.join("\n"), { parse_mode: "HTML" });
-    logger.info(`Tozalash: ${dead.length} ta o'lik guruh yozuvi o'chirildi`);
+    const [msgs, issues] = await Promise.all([
+      Message.deleteMany({ chatId }),
+      Issue.deleteMany({ chatId }),
+    ]);
+    await Group.deleteOne({ chatId });
+
+    await ctx.reply(
+      `🗑 <b>${escapeHtml(group.title || chatId)}</b> o'chirildi.\n\n` +
+        `Xabarlar: ${msgs.deletedCount}\nMuammolar: ${issues.deletedCount}`,
+      { parse_mode: "HTML" }
+    );
+    logger.info(`Guruh o'chirildi: ${chatId} ("${group.title}")`);
   });
 
   bot.command("runcheck", async (ctx) => {

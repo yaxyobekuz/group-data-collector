@@ -6,6 +6,13 @@ const aiService = require("./aiService");
 const dates = require("../utils/dates");
 const logger = require("../utils/logger");
 
+/**
+ * O'qituvchi o'z xabarini shu so'zlar bilan atasa — bu aniq vazifa,
+ * AI dan so'ralmaydi. Lotin va kirill yozuvi, turli qo'shimchalar bilan.
+ */
+const HOMEWORK_KEYWORDS =
+  /(vazifa|topshiriq|mashq|вазифа|топшири[қк]|маш[қк]|homework|dars\s*ishi)/i;
+
 /** Muammoni yozadi; takrorlansa jim o'tadi (unique index). */
 async function saveIssue(doc) {
   try {
@@ -46,7 +53,22 @@ async function checkHomework(localDate = dates.localDate()) {
     let hasHomework = false;
 
     if (messages.length > 0) {
-      if (aiService.isEnabled()) {
+      // Aniq belgi: o'qituvchi "vazifa"/"uyga vazifa"/"topshiriq" deb yozsa,
+      // bu AI ning qaroriga qoldirilmaydi.
+      //
+      // Sabab: nano model chegaraviy matnlarda beqaror — bir xil xabarni
+      // ba'zan vazifa deb topadi, ba'zan yo'q. O'qituvchi o'z xabarini
+      // "vazifa" deb atagan bo'lsa, uni inkor qilishning hojati yo'q.
+      const explicit = messages.find((m) => HOMEWORK_KEYWORDS.test(m.text));
+
+      if (explicit) {
+        hasHomework = true;
+        await Message.updateOne(
+          { _id: explicit._id },
+          { $set: { analyzed: true, isHomework: true } }
+        );
+        logger.debug(`"${group.title}": vazifa kalit so'z bo'yicha topildi`);
+      } else if (aiService.isEnabled()) {
         const homeworkIdx = await aiService.findHomework(messages);
         hasHomework = homeworkIdx.size > 0;
 
