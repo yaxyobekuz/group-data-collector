@@ -89,6 +89,20 @@ async function checkHomework(localDate = dates.localDate()) {
 
     if (hasHomework) {
       result.ok++;
+
+      // Vazifa topildi — bu guruhning shu kungi eski "vazifa yo'q" muammosini
+      // o'chiramiz. Aks holda tekshiruv qayta ishlaganda (o'qituvchi keyin
+      // belgilangan, vazifa keyin yuborilgan) eski muammo hisobotda qolib ketadi.
+      const removed = await Issue.deleteMany({
+        type: "no_homework",
+        localDate,
+        chatId: group.chatId,
+      });
+      if (removed.deletedCount > 0) {
+        logger.info(
+          `"${group.title}": vazifa topildi, eski "vazifa yo'q" muammosi o'chirildi`
+        );
+      }
       continue;
     }
 
