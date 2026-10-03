@@ -215,6 +215,27 @@ async function analyzeComplaints(localDate = dates.localDate()) {
 }
 
 /** Kechqurun ishlaydigan to'liq tekshiruv. */
+/**
+ * YARIM SOATLIK TAHLIL.
+ *
+ * Faqat yangi ota-ona xabarlarini tekshiradi — vazifa tekshiruvi bu yerda
+ * ishlamaydi, chunki o'qituvchi kun davomida yuborishi mumkin va erta
+ * tekshirish soxta "vazifa yo'q" muammosini keltirib chiqaradi.
+ *
+ * Xarajat: `analyzed: false` filtri tufayli har xabar faqat BIR MARTA AI ga
+ * boradi. Tez-tez ishga tushirish so'rovlarni maydalaydi, umumiy token
+ * sarfini deyarli oshirmaydi.
+ */
+async function runQuickCheck(localDate = dates.localDate()) {
+  const complaints = await analyzeComplaints(localDate);
+
+  // Savollarni ham shu yerda belgilaymiz — javob moslashtirish kechqurun,
+  // chunki o'qituvchi javob berishga ulgurishi kerak.
+  const questions = await teacherService.markQuestions(localDate);
+
+  return { complaints, questions };
+}
+
 async function runNightlyCheck(localDate = dates.localDate()) {
   // Muammolarni avval tahlil qilamiz — vazifa tekshiruvi Message yozuvlarini
   // isHomework deb belgilaydi, bu ota-ona tahliliga xalaqit bermasligi uchun
@@ -230,4 +251,9 @@ async function runNightlyCheck(localDate = dates.localDate()) {
   return { complaints, homework, questions, answers };
 }
 
-module.exports = { checkHomework, analyzeComplaints, runNightlyCheck };
+module.exports = {
+  checkHomework,
+  analyzeComplaints,
+  runQuickCheck,
+  runNightlyCheck,
+};

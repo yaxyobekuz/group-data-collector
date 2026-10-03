@@ -155,10 +155,13 @@ async function markQuestions(localDate = dates.localDate()) {
     .lean();
   if (!groups.length) return result;
 
+  // Faqat hali tekshirilmaganlar — yarim soatlik tahlilda bir xil xabar
+  // qayta-qayta AI ga ketmasligi uchun
   const messages = await Message.find({
     localDate,
     chatId: { $in: groups.map((g) => g.chatId) },
     senderRole: "parent",
+    questionChecked: false,
     text: { $ne: "" },
   }).lean();
 
@@ -167,6 +170,12 @@ async function markQuestions(localDate = dates.localDate()) {
 
   const questionIdx = await aiService.findQuestions(messages);
   result.questions = questionIdx.size;
+
+  // Hammasini tekshirilgan deb belgilaymiz
+  await Message.updateMany(
+    { _id: { $in: messages.map((m) => m._id) } },
+    { $set: { questionChecked: true } }
+  );
 
   const ids = [...questionIdx].map((i) => messages[i]._id);
   if (ids.length) {

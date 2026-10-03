@@ -3,6 +3,7 @@ const config = require("../config");
 const monitorService = require("./monitorService");
 const reportService = require("./reportService");
 const teacherService = require("./teacherService");
+const alertService = require("./alertService");
 const dates = require("../utils/dates");
 const logger = require("../utils/logger");
 
@@ -52,6 +53,37 @@ function start(api) {
     { name: "morning-report", timezone: config.timezone, noOverlap: true }
   );
 
+  // Har yarim soatda — yangi ota-ona xabarlarini tahlil qilib, muammo
+  // chiqsa adminlarga DARHOL yuboradi.
+  //
+  // Vazifa tekshiruvi bu yerda ishlamaydi: o'qituvchi kun davomida
+  // yuborishi mumkin, erta tekshirish soxta "vazifa yo'q" beradi.
+  const quick = cron.schedule(
+    config.quickCheckCron,
+    async () => {
+      if (dates.isSunday()) return;
+
+      // Maktab vaqtidan tashqarida tekshirmaymiz — tunda xabar kelmaydi,
+      // adminlar ham uxlayapti
+      const hour = Number(
+        new Date().toLocaleString("en-GB", {
+          timeZone: config.timezone,
+          hour: "2-digit",
+          hour12: false,
+        })
+      );
+      if (hour < config.quietHoursEnd || hour >= config.quietHoursStart) return;
+
+      try {
+        await monitorService.runQuickCheck();
+        await alertService.sendPendingAlerts(api);
+      } catch (err) {
+        logger.error("Yarim soatlik tekshiruv xatosi:", err);
+      }
+    },
+    { name: "quick-check", timezone: config.timezone, noOverlap: true }
+  );
+
   // Dushanba ertalab — o'tgan hafta bo'yicha o'qituvchilar reytingi.
   // Kunlik hisobotdan 15 daqiqa keyin, ikkalasi bir vaqtda kelmasligi uchun.
   const weekly = cron.schedule(
@@ -69,13 +101,16 @@ function start(api) {
     { name: "weekly-teacher-report", timezone: config.timezone, noOverlap: true }
   );
 
-  tasks.push(nightly, morning, weekly);
+  tasks.push(quick, nightly, morning, weekly);
 
   logger.info(
     `Jadval ishga tushdi (${config.timezone}): ` +
-      `tekshiruv "${config.homeworkCheckCron}", hisobot "${config.reportCron}"`
+      `tez tekshiruv "${config.quickCheckCron}" ` +
+      `(${config.quietHoursEnd}:00–${config.quietHoursStart}:00), ` +
+      `kechqurun "${config.homeworkCheckCron}", hisobot "${config.reportCron}"`
   );
-  logger.info(`Keyingi tekshiruv: ${nightly.getNextRun()?.toLocaleString("en-GB", { timeZone: config.timezone })}`);
+  logger.info(`Keyingi tez tekshiruv: ${quick.getNextRun()?.toLocaleString("en-GB", { timeZone: config.timezone })}`);
+  logger.info(`Keyingi kechqurungi tekshiruv: ${nightly.getNextRun()?.toLocaleString("en-GB", { timeZone: config.timezone })}`);
   logger.info(`Keyingi hisobot: ${morning.getNextRun()?.toLocaleString("en-GB", { timeZone: config.timezone })}`);
   logger.info(`Keyingi o'qituvchi hisoboti: ${weekly.getNextRun()?.toLocaleString("en-GB", { timeZone: config.timezone })}`);
 }
