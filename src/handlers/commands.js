@@ -6,6 +6,7 @@ const roleService = require("../services/roleService");
 const reportService = require("../services/reportService");
 const monitorService = require("../services/monitorService");
 const teacherService = require("../services/teacherService");
+const alertService = require("../services/alertService");
 const dates = require("../utils/dates");
 const logger = require("../utils/logger");
 
@@ -573,13 +574,21 @@ function register(bot) {
 
     try {
       const result = await monitorService.runNightlyCheck();
+
+      // Yangi muammolarni darhol adminlarga yuboramiz — ertalabni kutmasdan
+      const alert = await alertService.sendPendingAlerts(ctx.api);
+
       await ctx.reply(
         `✅ Tekshiruv tugadi (${result.homework.date})\n\n` +
           `Guruhlar: ${result.homework.checked}\n` +
           `Vazifa yuborgan: ${result.homework.ok}\n` +
           `Yubormagan: ${result.homework.missing}\n` +
           `Tekshirilgan ota-ona xabarlari: ${result.complaints.scanned}\n` +
-          `Topilgan shikoyatlar: ${result.complaints.found}\n\n` +
+          `Topilgan shikoyatlar: ${result.complaints.found}\n` +
+          `Savollar: ${result.questions?.questions ?? 0}, javob berilgan: ${result.answers?.answered ?? 0}\n\n` +
+          (alert.found > 0
+            ? `🔔 ${alert.found} ta yangi muammo ${alert.sent} adminga yuborildi.\n\n`
+            : "") +
           "Hisobotni ko'rish: /report"
       );
     } catch (err) {
