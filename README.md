@@ -338,6 +338,18 @@ tushganda** va **har kechqurungi tekshiruvdan oldin** barcha guruhlarda
 Tarmoq xatosi bo'lsa guruh **o'chirilmaydi** — faqat aniq "chiqarilgan"
 yoki "topilmadi" javobida nazoratdan olinadi.
 
+**Eski muammolar nima bo'ladi?** Guruh nazoratdan olinganda uning bazadagi
+muammolari o'chirilmaydi, lekin:
+
+| Qayerda | Ko'rinadimi |
+|---|---|
+| `/report` kunlik hisobot | ❌ yo'q |
+| Shoshilinch xabarlar | ❌ yo'q |
+| `/issues` tarix | ✅ ha, `🚪 nazoratda emas` belgisi bilan |
+
+Ya'ni chiqarilgan guruh hisobotlarni ifloslantirmaydi, lekin tarixi
+saqlanib qoladi.
+
 > ⚠️ **MUHIM:** `my_chat_member` polling'da standart holda **kelmaydi**.
 > [index.js](index.js) dagi `ALLOWED_UPDATES` ro'yxatida alohida so'raladi:
 > ```js
