@@ -1,4 +1,5 @@
 const Issue = require("../models/Issue");
+const Group = require("../models/Group");
 const roleService = require("./roleService");
 const dates = require("../utils/dates");
 const logger = require("../utils/logger");
@@ -69,7 +70,16 @@ function buildAlert(issues) {
 async function sendPendingAlerts(api, localDate = dates.localDate()) {
   const result = { found: 0, sent: 0, recipients: 0 };
 
-  const pending = await Issue.find({ localDate, reported: false })
+  // Faqat nazoratdagi guruhlar — bot chiqarilgan guruh haqida xabar kelmasin
+  const monitored = await Group.find({ isMonitored: true, isActive: true })
+    .select("chatId")
+    .lean();
+
+  const pending = await Issue.find({
+    localDate,
+    reported: false,
+    chatId: { $in: monitored.map((g) => g.chatId) },
+  })
     .sort({ severity: -1, createdAt: 1 })
     .limit(MAX_PER_ALERT)
     .lean();

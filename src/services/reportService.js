@@ -21,11 +21,21 @@ function escapeHtml(text) {
  * @returns {Promise<{text:string, count:number}>}
  */
 async function buildReport(localDate = dates.localDate()) {
-  const issues = await Issue.find({ localDate }).sort({ severity: -1 }).lean();
+  // Faqat hozir nazoratdagi guruhlar. Bot guruhdan chiqarilgan bo'lsa,
+  // uning eski muammolari bazada qoladi, lekin hisobotda ko'rinmasligi
+  // kerak — aks holda chiqarilgan guruh har kuni ro'yxatda turaveradi.
+  const monitored = await Group.find({ isMonitored: true, isActive: true })
+    .select("chatId")
+    .lean();
+  const chatIds = monitored.map((g) => g.chatId);
+
+  const issues = await Issue.find({ localDate, chatId: { $in: chatIds } })
+    .sort({ severity: -1 })
+    .lean();
   const header = `📋 <b>Kunlik hisobot</b>\n${dates.formatDate(localDate)}\n`;
 
   if (issues.length === 0) {
-    const groupCount = await Group.countDocuments({ isMonitored: true, isActive: true });
+    const groupCount = monitored.length;
     return {
       text:
         header +
