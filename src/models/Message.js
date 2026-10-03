@@ -33,8 +33,11 @@ const messageSchema = new Schema(
     isHomework: { type: Boolean, default: false },
     isComplaint: { type: Boolean, default: false },
 
-    // Ota-ona xabari savolmi (javob kutadimi) — AI aniqlaydi
+    // Ota-ona xabari savolmi (javob kutadimi) — AI aniqlaydi.
+    // `questionChecked` alohida bayroq: `analyzed` shikoyat tahliliga tegishli,
+    // ikkisi turli vaqtda ishlaydi va bir-birini bloklamasligi kerak.
     isQuestion: { type: Boolean, default: false },
+    questionChecked: { type: Boolean, default: false, index: true },
   },
   { timestamps: true }
 );
