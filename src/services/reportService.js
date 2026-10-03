@@ -100,4 +100,133 @@ async function sendReport(api, localDate = dates.localDate()) {
   return { sent, total: recipients.length, count };
 }
 
-module.exports = { buildReport, sendReport };
+/** Ball bo'yicha belgi. */
+function scoreIcon(score) {
+  if (score >= 85) return "🟢";
+  if (score >= 70) return "🟡";
+  if (score >= 50) return "🟠";
+  return "🔴";
+}
+
+/** Daqiqani o'qilishi oson shaklga keltiradi. */
+function formatDelay(minutes) {
+  if (minutes === null || minutes === undefined) return "—";
+  if (minutes < 60) return `${minutes} daqiqa`;
+  const hours = Math.round(minutes / 6) / 10;
+  return `${hours} soat`;
+}
+
+/**
+ * O'qituvchilar reytingi matnini tuzadi.
+ * @param {object} ranking teacherService.buildRanking natijasi
+ */
+function buildTeacherReport(ranking) {
+  const { from, to, schoolDays, teachers } = ranking;
+
+  const header =
+    "📊 <b>O'qituvchilar hisoboti</b>\n" +
+    `${dates.formatDate(from)} — ${dates.formatDate(to)}\n` +
+    `${schoolDays} o'quv kuni\n`;
+
+  const ranked = teachers.filter((row) => !row.unassigned);
+  const unassigned = teachers.filter((row) => row.unassigned);
+
+  if (!ranked.length) {
+    const parts = [header, "\n⚠️ Baholash uchun ma'lumot yo'q."];
+    if (unassigned.length) {
+      parts.push(
+        "",
+        `${unassigned.length} ta o'qituvchi hech qaysi guruhga biriktirilmagan.`,
+        "Guruhda <code>/assign</code> yoki <code>/setteacher</code> qiling."
+      );
+    } else {
+      parts.push("", "O'qituvchi belgilanmagan. Guruhda /setteacher qiling.");
+    }
+    return { text: parts.join("\n"), count: 0 };
+  }
+
+  const parts = [header];
+
+  for (const row of ranked) {
+    const name = escapeHtml(
+      [row.teacher.firstName, row.teacher.lastName].filter(Boolean).join(" ") ||
+        row.teacher.username ||
+        String(row.teacher.telegramId)
+    );
+    const groupNames = row.groups.map((g) => g.title || g.chatId).join(", ");
+
+    parts.push(
+      `\n${scoreIcon(row.score)} <b>${name}</b> — <b>${row.score}/100</b>`,
+      `   <i>${escapeHtml(groupNames)}</i>`,
+      `   📚 Vazifa: ${row.homeworkDays}/${schoolDays} kun`
+    );
+
+    // Savol bo'lmasa, javob qatorini ko'rsatmaymiz — ma'nosi yo'q
+    if (row.questions > 0) {
+      const pct = Math.round(row.answerRate * 100);
+      parts.push(
+        `   💬 Javob: ${row.answered}/${row.questions} savol (${pct}%)` +
+          (row.avgDelay !== null ? `, o'rtacha ${formatDelay(row.avgDelay)}` : "")
+      );
+    } else {
+      parts.push("   💬 Javob: savol bo'lmagan");
+    }
+
+    if (row.complaints > 0) {
+      parts.push(
+        `   ⚠️ Shikoyat: ${row.complaints}` +
+          (row.severeComplaints > 0 ? ` (${row.severeComplaints} jiddiy)` : "")
+      );
+    }
+
+    parts.push(`   ✍️ Faollik: ${row.messages} xabar`);
+  }
+
+  if (unassigned.length) {
+    parts.push("", `<b>Biriktirilmagan (${unassigned.length})</b>`);
+    for (const row of unassigned) {
+      const name = escapeHtml(
+        [row.teacher.firstName, row.teacher.lastName].filter(Boolean).join(" ") ||
+          row.teacher.username ||
+          String(row.teacher.telegramId)
+      );
+      parts.push(`   • ${name} — guruhga biriktirilmagan`);
+    }
+  }
+
+  let text = parts.join("\n");
+  if (text.length > MAX_LEN) {
+    text = text.slice(0, MAX_LEN) + "\n\n<i>…hisobot qisqartirildi</i>";
+  }
+
+  return { text, count: ranked.length };
+}
+
+/** O'qituvchilar hisobotini owner va adminlarga yuboradi. */
+async function sendTeacherReport(api, ranking) {
+  const { text, count } = buildTeacherReport(ranking);
+  const recipients = await roleService.reportRecipients();
+
+  let sent = 0;
+  for (const chatId of recipients) {
+    try {
+      await api.sendMessage({ chat_id: chatId, text, parse_mode: "HTML" });
+      sent++;
+    } catch (err) {
+      logger.error(`O'qituvchi hisoboti yuborilmadi (${chatId}):`, err.message);
+    }
+  }
+
+  logger.info(
+    `O'qituvchi hisoboti yuborildi: ${sent}/${recipients.length} odamga, ${count} o'qituvchi`
+  );
+
+  return { sent, total: recipients.length, count };
+}
+
+module.exports = {
+  buildReport,
+  sendReport,
+  buildTeacherReport,
+  sendTeacherReport,
+};

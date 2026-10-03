@@ -2,6 +2,7 @@ const cron = require("node-cron");
 const config = require("../config");
 const monitorService = require("./monitorService");
 const reportService = require("./reportService");
+const teacherService = require("./teacherService");
 const dates = require("../utils/dates");
 const logger = require("../utils/logger");
 
@@ -51,7 +52,24 @@ function start(api) {
     { name: "morning-report", timezone: config.timezone, noOverlap: true }
   );
 
-  tasks.push(nightly, morning);
+  // Dushanba ertalab — o'tgan hafta bo'yicha o'qituvchilar reytingi.
+  // Kunlik hisobotdan 15 daqiqa keyin, ikkalasi bir vaqtda kelmasligi uchun.
+  const weekly = cron.schedule(
+    config.teacherReportCron,
+    async () => {
+      logger.info("Haftalik o'qituvchi hisoboti tayyorlanmoqda");
+      try {
+        const range = dates.lastWeekRange();
+        const ranking = await teacherService.buildRanking(range.from, range.to);
+        await reportService.sendTeacherReport(api, ranking);
+      } catch (err) {
+        logger.error("Haftalik hisobot xatosi:", err);
+      }
+    },
+    { name: "weekly-teacher-report", timezone: config.timezone, noOverlap: true }
+  );
+
+  tasks.push(nightly, morning, weekly);
 
   logger.info(
     `Jadval ishga tushdi (${config.timezone}): ` +
@@ -59,6 +77,7 @@ function start(api) {
   );
   logger.info(`Keyingi tekshiruv: ${nightly.getNextRun()?.toLocaleString("en-GB", { timeZone: config.timezone })}`);
   logger.info(`Keyingi hisobot: ${morning.getNextRun()?.toLocaleString("en-GB", { timeZone: config.timezone })}`);
+  logger.info(`Keyingi o'qituvchi hisoboti: ${weekly.getNextRun()?.toLocaleString("en-GB", { timeZone: config.timezone })}`);
 }
 
 function stop() {

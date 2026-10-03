@@ -50,6 +50,7 @@ npm start
 | `TIMEZONE` | `Asia/Tashkent` — "shu kun" va jadval shunga bog'liq |
 | `HOMEWORK_CHECK_CRON` | `0 23 * * 1-6` — kechqurun tekshiruv |
 | `REPORT_CRON` | `0 8 * * 1-6` — ertalabki hisobot |
+| `TEACHER_REPORT_CRON` | `15 8 * * 1` — dushanba, o'qituvchilar reytingi |
 
 `1-6` = Dushanba–Shanba. **Yakshanba tekshirilmaydi.**
 
@@ -124,6 +125,9 @@ Adminlar ertalabki hisobotni avtomatik oladi.
 | `/report 2026-10-01` | Tanlangan kun hisoboti |
 | `/groups` | Guruhlar va biriktirilgan o'qituvchilar |
 | `/issues` | Oxirgi 15 muammo |
+| `/teachers` | O'qituvchilar reytingi (o'tgan hafta) |
+| `/teachers 30` | Oxirgi 30 kun bo'yicha |
+| `/status` | Tizim holati — nosozlik bormi |
 
 **Faqat owner:**
 
@@ -137,6 +141,54 @@ Adminlar ertalabki hisobotni avtomatik oladi.
 | `/monitor on\|off` | Guruh nazoratini boshqarish (ta'til uchun) |
 | `/runcheck` | Tekshiruvni darhol ishga tushirish |
 | `/cleanup` | Ishlamaydigan guruh yozuvlarini tozalash |
+
+## O'qituvchilar reytingi
+
+Har dushanba 08:15 da o'tgan hafta bo'yicha avtomatik keladi; istalgan paytda
+`/teachers` bilan so'rash mumkin.
+
+```
+🟢 Aziza Tosheva — 100/100
+   5-A sinf
+   📚 Vazifa: 6/6 kun
+   💬 Javob: 3/3 savol (100%), o'rtacha 30 daqiqa
+   ✍️ Faollik: 9 xabar
+
+🔴 Malika Yusupova — 13/100
+   7-V sinf
+   📚 Vazifa: 1/6 kun
+   💬 Javob: 0/3 savol (0%)
+   ⚠️ Shikoyat: 2 (2 jiddiy)
+   ✍️ Faollik: 1 xabar
+```
+
+### Ball qanday hisoblanadi
+
+| Ko'rsatkich | Og'irlik | Mantiq |
+|---|---|---|
+| Vazifa muntazamligi | 40 | Necha o'quv kunida vazifa yuborgan |
+| Ota-ona savollariga javob | 35 | Javob ulushi × tezlik omili |
+| Shikoyatlar yo'qligi | 15 | 4–5 darajali shikoyat ikki barobar jarima |
+| Umumiy faollik | 10 | Kuniga kamida 1 xabar kutiladi |
+
+Belgilar: 🟢 85+ · 🟡 70+ · 🟠 50+ · 🔴 50 dan past.
+
+**Savol bo'lmasa jazolanmaydi** — javob ko'rsatkichi neytral 1 bo'ladi, aks
+holda tinch guruhdagi o'qituvchi nohaq past ball olardi.
+
+### Javob qanday aniqlanadi
+
+Ota-ona xabari savolmi yoki yo'qligini AI aniqlaydi (kechqurungi tekshiruvda,
+`isQuestion`). Keyin javob ikki usulda qidiriladi:
+
+1. **Aniq** — o'qituvchi savolga *reply* qilgan (`replyToMessageId`)
+2. **Taxminiy** — savoldan keyin o'sha guruhda o'qituvchi yozgan birinchi xabar
+
+Ikkinchisi kerak, chunki kichik guruhlarda odamlar reply qilmay javob
+berishadi. Javob oynasi — **24 soat**; undan keyingisi javobsiz sanaladi.
+
+> ⚠️ Reply bog'lanishi 2026-10-03 dan boshlab saqlanadi. Undan oldingi
+> xabarlar uchun faqat taxminiy usul ishlaydi.
 
 ## Struktura
 
@@ -154,6 +206,7 @@ src/
     Issue.js                  topilgan muammolar
   services/
     roleService.js            rollarni boshqarish
+    teacherService.js         o'qituvchi reytingi va javob moslashtirish
     collectorService.js       xabarlarni yig'ish
     aiService.js              AI tahlil (vazifa va shikoyat)
     monitorService.js         kechqurun tekshiruv

@@ -12,6 +12,18 @@ const messageSchema = new Schema(
     text: { type: String, default: "" },
     contentType: { type: String, default: "text" },
 
+    // Javob (reply) bog'lanishi — o'qituvchi ota-onaga javob berganini
+    // aniq bilish uchun. Telegram `reply_to_message` dan olinadi.
+    replyToMessageId: { type: Number, default: null },
+    replyToUserId: { type: Number, default: null },
+
+    // Shu xabarga javob kelganmi (ota-ona savoliga o'qituvchi javobi).
+    // Kechqurungi tahlilda to'ldiriladi.
+    answeredByUserId: { type: Number, default: null },
+    answeredAt: { type: Date, default: null },
+    // Savoldan javobgacha o'tgan vaqt (daqiqa)
+    answerDelayMin: { type: Number, default: null },
+
     // Mahalliy sana "YYYY-MM-DD" — kunlik tekshiruv shu bo'yicha ishlaydi
     localDate: { type: String, required: true, index: true },
     sentAt: { type: Date, default: Date.now },
@@ -20,6 +32,9 @@ const messageSchema = new Schema(
     analyzed: { type: Boolean, default: false, index: true },
     isHomework: { type: Boolean, default: false },
     isComplaint: { type: Boolean, default: false },
+
+    // Ota-ona xabari savolmi (javob kutadimi) — AI aniqlaydi
+    isQuestion: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
@@ -27,5 +42,7 @@ const messageSchema = new Schema(
 messageSchema.index({ chatId: 1, messageId: 1 }, { unique: true });
 // Kunlik tekshiruv uchun: shu kun + shu guruh + o'qituvchi xabarlari
 messageSchema.index({ localDate: 1, chatId: 1, senderRole: 1 });
+// O'qituvchi reytingi uchun: sana oralig'i + rol
+messageSchema.index({ localDate: 1, senderRole: 1, userId: 1 });
 
 module.exports = model("Message", messageSchema);

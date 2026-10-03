@@ -5,6 +5,7 @@ const Message = require("../models/Message");
 const roleService = require("../services/roleService");
 const reportService = require("../services/reportService");
 const monitorService = require("../services/monitorService");
+const teacherService = require("../services/teacherService");
 const dates = require("../utils/dates");
 const logger = require("../utils/logger");
 
@@ -60,6 +61,8 @@ function register(bot) {
         "/report 2026-10-01 — tanlangan kun hisoboti",
         "/groups — guruhlar ro'yxati",
         "/issues — oxirgi muammolar",
+        "/teachers — o'qituvchilar reytingi (o'tgan hafta)",
+        "/teachers 30 — oxirgi 30 kun bo'yicha",
         "/status — tizim holati (nosozlik bormi?)"
       );
     }
@@ -140,6 +143,44 @@ function register(bot) {
     }
 
     await ctx.reply(lines.join("\n"), { parse_mode: "HTML" });
+  });
+
+  bot.command("teachers", async (ctx) => {
+    if (!(await roleService.isAdminOrOwner(ctx.from?.id))) {
+      await ctx.reply("⛔️ Bu buyruq adminlar uchun.");
+      return;
+    }
+
+    const arg = (typeof ctx.match === "string" ? ctx.match : "").trim().toLowerCase();
+
+    // /teachers           -> o'tgan hafta
+    // /teachers 30        -> oxirgi 30 kun
+    // /teachers oy        -> oxirgi 30 kun
+    let range;
+    let label;
+
+    if (arg === "oy" || arg === "30") {
+      range = dates.lastDays(30);
+      label = "Oxirgi 30 kun";
+    } else if (/^\d+$/.test(arg)) {
+      const days = Math.min(365, Math.max(1, Number(arg)));
+      range = dates.lastDays(days);
+      label = `Oxirgi ${days} kun`;
+    } else {
+      range = dates.lastWeekRange();
+      label = "O'tgan hafta";
+    }
+
+    await ctx.reply(`⏳ ${label} bo'yicha hisoblanmoqda…`);
+
+    try {
+      const ranking = await teacherService.buildRanking(range.from, range.to);
+      const { text } = reportService.buildTeacherReport(ranking);
+      await ctx.reply(text, { parse_mode: "HTML" });
+    } catch (err) {
+      logger.error("O'qituvchi hisoboti xatosi:", err);
+      await ctx.reply(`❌ Xato: ${err.message}`);
+    }
   });
 
   bot.command("issues", async (ctx) => {

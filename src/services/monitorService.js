@@ -3,6 +3,7 @@ const Group = require("../models/Group");
 const User = require("../models/User");
 const Issue = require("../models/Issue");
 const aiService = require("./aiService");
+const teacherService = require("./teacherService");
 const dates = require("../utils/dates");
 const logger = require("../utils/logger");
 
@@ -220,7 +221,13 @@ async function runNightlyCheck(localDate = dates.localDate()) {
   // ikkisi alohida senderRole bo'yicha ishlaydi.
   const complaints = await analyzeComplaints(localDate);
   const homework = await checkHomework(localDate);
-  return { complaints, homework };
+
+  // O'qituvchi reytingi uchun: ota-ona savollarini belgilab, o'qituvchi
+  // javoblarini moslashtiramiz. Tartib muhim — avval savol, keyin javob.
+  const questions = await teacherService.markQuestions(localDate);
+  const answers = await teacherService.matchAnswers(localDate);
+
+  return { complaints, homework, questions, answers };
 }
 
 module.exports = { checkHomework, analyzeComplaints, runNightlyCheck };

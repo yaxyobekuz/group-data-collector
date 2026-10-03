@@ -89,6 +89,11 @@ async function collect(message) {
   const text = message.text || message.caption || "";
 
   try {
+    // Javob bog'lanishi — o'qituvchi kimga javob berganini bilish uchun.
+    // Bot javoblari hisobga olinmaydi.
+    const replyTo = message.reply_to_message;
+    const replyToUser = replyTo?.from && !replyTo.from.is_bot ? replyTo.from.id : null;
+
     await Message.create({
       messageId: message.message_id,
       chatId: chat.id,
@@ -96,6 +101,8 @@ async function collect(message) {
       senderRole: role,
       text,
       contentType: detectContentType(message),
+      replyToMessageId: replyTo?.message_id || null,
+      replyToUserId: replyToUser,
       localDate: dates.localDate(new Date(message.date * 1000)),
       sentAt: new Date(message.date * 1000),
     });

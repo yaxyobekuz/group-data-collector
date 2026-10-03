@@ -66,6 +66,26 @@ issue=false bo'lsa sev=1 va sum="" bo'ladi.
 QAT'IY QOIDA: berilgan HAR BIR ID uchun aynan bitta natija qaytar.
 ID larni o'zgartirma, o'rnini almashtirma, birini ham tushirib qoldirma.`;
 
+const QUESTION_PROMPT = `Sen maktab Telegram guruhlarini tahlil qiluvchi tizimsan.
+Ota-onalar yozgan xabarlar berilgan. Har biri uchun aniqla:
+bu xabar O'QITUVCHIDAN JAVOB KUTADIMI?
+
+Javob kutadi: savol, iltimos, ruxsat so'rash, aniqlik kiritish so'rovi,
+muammo haqida murojaat, "qachon", "nega", "qanday", "bo'ladimi" kabi savollar.
+Masalan: "Ertaga dars bo'ladimi?", "Bolam kasal, vazifani qayerdan olaman?",
+"Nega darslik berilmadi?", "Ruxsat bersangiz".
+
+Javob kutmaydi: rahmat, salomlashish, tabrik, "xo'p bo'ladi", "tushundim",
+"ok", stiker/emoji, shunchaki xabar berish ("bolam kelmaydi" — bu ma'lumot,
+javob talab qilmaydi), ota-onalarning o'zaro suhbati.
+
+Har bir xabar "ID| matn" ko'rinishida berilgan.
+Faqat JSON qaytar:
+{"items":[{"id":"<ID>","echo":"<xabarning birinchi 12 belgisi>","q":<true|false>}]}
+
+QAT'IY QOIDA: berilgan HAR BIR ID uchun aynan bitta natija qaytar.
+ID larni o'zgartirma, o'rnini almashtirma, birini ham tushirib qoldirma.`;
+
 function truncate(text) {
   const clean = (text || "").replace(/\s+/g, " ").trim();
   return clean.length > MAX_TEXT_LEN ? clean.slice(0, MAX_TEXT_LEN) + "…" : clean;
@@ -231,4 +251,27 @@ async function findComplaints(messages) {
   return complaints;
 }
 
-module.exports = { isEnabled, findHomework, findComplaints, BATCH_SIZE };
+/**
+ * Ota-ona xabarlari ichidan JAVOB KUTADIGANLARINI aniqlaydi.
+ *
+ * Shikoyatdan farqi: shikoyat — norozilik, savol — javob kutiladigan murojaat.
+ * Bu ikkisi kesishishi mumkin ("nega darslik berilmadi?" ikkalasi ham).
+ *
+ * @returns {Promise<Set<number>>} savol deb topilgan xabarlar indekslari
+ */
+async function findQuestions(messages) {
+  const results = await analyzeAll(messages, QUESTION_PROMPT);
+  const questions = new Set();
+  for (const [index, item] of results) {
+    if (item.q === true) questions.add(index);
+  }
+  return questions;
+}
+
+module.exports = {
+  isEnabled,
+  findHomework,
+  findComplaints,
+  findQuestions,
+  BATCH_SIZE,
+};
