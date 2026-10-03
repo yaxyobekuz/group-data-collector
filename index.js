@@ -3,6 +3,7 @@ const config = require("./src/config");
 const { createBot } = require("./src/bot");
 const { connectDatabase, disconnectDatabase } = require("./src/config/database");
 const scheduler = require("./src/services/scheduler");
+const membershipService = require("./src/services/membershipService");
 const aiService = require("./src/services/aiService");
 const logger = require("./src/utils/logger");
 
@@ -56,6 +57,23 @@ async function main() {
     );
   } else {
     logger.info(`AI model: ${config.openaiModel}`);
+  }
+
+  // Bot o'chiq paytda guruhdan chiqarilgan bo'lishi mumkin — o'sha paytdagi
+  // `my_chat_member` yangiligi yo'qolgan. Shuning uchun har ishga tushganda
+  // mavjud guruhlarda bot hali a'zomi yoki yo'qligini tekshiramiz.
+  try {
+    const sync = await membershipService.syncAll(bot.api, me.id);
+    if (sync.removed.length) {
+      logger.warn(
+        `${sync.removed.length} ta guruh nazoratdan olindi: ` +
+          sync.removed.map((r) => `"${r.group.title}" (${r.reason})`).join(", ")
+      );
+    } else if (sync.checked > 0) {
+      logger.info(`A'zolik tekshirildi: ${sync.alive} guruh nazoratda`);
+    }
+  } catch (err) {
+    logger.error("A'zolik tekshiruvida xato:", err.message);
   }
 
   scheduler.start(bot.api);

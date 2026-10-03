@@ -4,6 +4,7 @@ const monitorService = require("./monitorService");
 const reportService = require("./reportService");
 const teacherService = require("./teacherService");
 const alertService = require("./alertService");
+const membershipService = require("./membershipService");
 const dates = require("../utils/dates");
 const logger = require("../utils/logger");
 
@@ -25,6 +26,11 @@ function start(api) {
       }
       logger.info("Kechqurun tekshiruv boshlandi");
       try {
+        // Avval a'zolikni tekshiramiz — kun davomida botni chiqarib
+        // yuborgan bo'lishsa, o'sha guruh uchun soxta muammo yozilmasin
+        const me = await api.getMe();
+        await membershipService.syncAll(api, me.id);
+
         await monitorService.runNightlyCheck();
       } catch (err) {
         logger.error("Kechqurun tekshiruv xatosi:", err);

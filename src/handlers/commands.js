@@ -7,6 +7,7 @@ const reportService = require("../services/reportService");
 const monitorService = require("../services/monitorService");
 const teacherService = require("../services/teacherService");
 const alertService = require("../services/alertService");
+const membershipService = require("../services/membershipService");
 const dates = require("../utils/dates");
 const logger = require("../utils/logger");
 
@@ -79,7 +80,8 @@ function register(bot) {
         "/assign — guruhga o'qituvchi biriktirish",
         "/monitor on|off — guruh nazoratini boshqarish",
         "/runcheck — tekshiruvni hozir ishga tushirish",
-        "/cleanup — guruhlar holatini tekshirish",
+        "/sync — guruhlarda bot hali a'zomi, tekshirish",
+        "/cleanup — guruhlar holatini ko'rish",
         "/forget CHATID — guruh yozuvini o'chirish"
       );
     }
@@ -535,6 +537,62 @@ function register(bot) {
     );
 
     await ctx.reply(lines.join("\n"), { parse_mode: "HTML" });
+  });
+
+  bot.command("sync", async (ctx) => {
+    if (!roleService.isOwner(ctx.from?.id)) {
+      await ctx.reply("⛔️ Bu buyruq faqat owner uchun.");
+      return;
+    }
+
+    await ctx.reply("⏳ Guruhlar tekshirilmoqda…");
+
+    try {
+      const me = await ctx.api.getMe();
+      const result = await membershipService.syncAll(ctx.api, me.id);
+
+      if (!result.checked) {
+        await ctx.reply("Bazada nazoratdagi guruh yo'q.");
+        return;
+      }
+
+      const lines = ["🔄 <b>A'zolik tekshirildi</b>", ""];
+
+      if (result.alive > 0) {
+        lines.push(`✅ Nazoratda: <b>${result.alive}</b> guruh`);
+      }
+
+      if (result.removed.length) {
+        lines.push("", `🚪 <b>Nazoratdan olindi (${result.removed.length})</b>`);
+        for (const { group, reason } of result.removed) {
+          lines.push(
+            `   • ${escapeHtml(group.title || group.chatId)} — ${escapeHtml(reason)}`
+          );
+        }
+        lines.push(
+          "",
+          "Bu guruhlar endi tekshirilmaydi va hisobotga tushmaydi.",
+          "Botni qayta qo'shsangiz nazorat o'z-o'zidan tiklanadi."
+        );
+      }
+
+      if (result.unknown.length) {
+        lines.push("", `❓ <b>Tekshirib bo'lmadi (${result.unknown.length})</b>`);
+        for (const { group } of result.unknown) {
+          lines.push(`   • ${escapeHtml(group.title || group.chatId)}`);
+        }
+        lines.push("   Holati o'zgartirilmadi — keyinroq qayta urinib ko'ring.");
+      }
+
+      if (!result.removed.length && !result.unknown.length) {
+        lines.push("", "Hamma guruh joyida, o'zgarish yo'q.");
+      }
+
+      await ctx.reply(lines.join("\n"), { parse_mode: "HTML" });
+    } catch (err) {
+      logger.error("Sync xatosi:", err);
+      await ctx.reply(`❌ Xato: ${err.message}`);
+    }
   });
 
   bot.command("forget", async (ctx) => {
