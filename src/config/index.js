@@ -26,6 +26,12 @@ const config = {
   // Dushanba 08:15 — o'tgan hafta bo'yicha o'qituvchilar reytingi
   teacherReportCron: process.env.TEACHER_REPORT_CRON || "15 8 * * 1",
 
+  // Har yarim soatda — yangi muammolarni darhol adminlarga yuborish
+  quickCheckCron: process.env.QUICK_CHECK_CRON || "*/30 * * * 1-6",
+  // Jim soatlar: shu oraliqdan tashqarida shoshilinch xabar yuborilmaydi
+  quietHoursEnd: Number(process.env.QUIET_HOURS_END) || 7,
+  quietHoursStart: Number(process.env.QUIET_HOURS_START) || 22,
+
   mode: process.env.BOT_MODE === "webhook" ? "webhook" : "polling",
   webhookUrl: process.env.WEBHOOK_URL || "",
   webhookSecret: process.env.WEBHOOK_SECRET || "",
