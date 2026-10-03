@@ -192,6 +192,13 @@ function register(bot) {
       return;
     }
 
+    // Nazoratdan olingan guruhlarni belgilab ko'rsatamiz — ular hisobotga
+    // tushmaydi, lekin tarix sifatida ko'rinishi foydali
+    const monitored = await Group.find({ isMonitored: true, isActive: true })
+      .select("chatId")
+      .lean();
+    const activeChats = new Set(monitored.map((g) => g.chatId));
+
     const issues = await Issue.find().sort({ createdAt: -1 }).limit(15).lean();
     if (!issues.length) {
       await ctx.reply("✅ Hech qanday muammo yo'q.");
@@ -202,8 +209,9 @@ function register(bot) {
     for (const issue of issues) {
       const tag =
         issue.type === "no_homework" ? "📚 Vazifa yo'q" : `⚠️ Shikoyat (${issue.severity})`;
+      const inactive = activeChats.has(issue.chatId) ? "" : " · 🚪 nazoratda emas";
       lines.push(
-        `${tag} — ${dates.formatDate(issue.localDate)}`,
+        `${tag} — ${dates.formatDate(issue.localDate)}${inactive}`,
         `   <b>${escapeHtml(issue.groupTitle || issue.chatId)}</b> — ${escapeHtml(issue.userName)}`,
         `   ${escapeHtml(issue.summary)}`,
         ""
