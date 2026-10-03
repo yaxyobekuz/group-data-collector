@@ -149,7 +149,10 @@ Adminlar ertalabki hisobotni avtomatik oladi.
 | `/assign` | Guruhga o'qituvchi biriktirish |
 | `/monitor on\|off` | Guruh nazoratini boshqarish (ta'til uchun) |
 | `/runcheck` | Tekshiruvni darhol ishga tushirish |
-| `/cleanup` | Ishlamaydigan guruh yozuvlarini tozalash |
+| `/sync` | Guruhlarda bot hali a'zomi — tekshirish |
+| `/cleanup` | Guruhlar holatini ko'rish (o'chirmaydi) |
+| `/forget CHATID` | Guruh yozuvini butunlay o'chirish |
+
 
 ## Shoshilinch xabarlar
 
@@ -250,6 +253,7 @@ src/
     Issue.js                  topilgan muammolar
   services/
     roleService.js            rollarni boshqarish
+    membershipService.js      bot guruhlarda hali a'zomi — tekshirish
     alertService.js           shoshilinch xabarlar (har 30 daqiqada)
     teacherService.js         o'qituvchi reytingi va javob moslashtirish
     collectorService.js       xabarlarni yig'ish
@@ -325,6 +329,14 @@ tekshirilmaydi va hisobotga tushmaydi.
 
 Botni qayta qo'shsangiz nazorat **o'z-o'zidan tiklanadi** — hech narsa
 qilish shart emas.
+
+**Bot o'chiq paytda chiqarilgan bo'lsa?** O'sha paytdagi `my_chat_member`
+yangiligi yo'qoladi — hech kim uni tutmaydi. Shuning uchun bot **har ishga
+tushganda** va **har kechqurungi tekshiruvdan oldin** barcha guruhlarda
+`getChatMember` bilan o'zini qidiradi. Qo'lda ishga tushirish: `/sync`.
+
+Tarmoq xatosi bo'lsa guruh **o'chirilmaydi** — faqat aniq "chiqarilgan"
+yoki "topilmadi" javobida nazoratdan olinadi.
 
 > ⚠️ **MUHIM:** `my_chat_member` polling'da standart holda **kelmaydi**.
 > [index.js](index.js) dagi `ALLOWED_UPDATES` ro'yxatida alohida so'raladi:
