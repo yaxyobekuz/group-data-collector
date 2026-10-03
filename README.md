@@ -9,13 +9,20 @@ Xususiy maktab Telegram guruhlarini avtomatik nazorat qiladi:
 ## Qanday ishlaydi
 
 ```
-Kun bo'yi          Guruh xabarlari bazaga yoziladi (rol bilan birga)
+Kun bo'yi            Guruh xabarlari bazaga yoziladi (rol bilan birga)
       ↓
-23:00              1. Ota-ona xabarlari AI bilan tahlil → shikoyatlar
-                   2. Har guruh tekshiriladi → vazifa yo'qmi? → muammo
+HAR 30 DAQIQADA      Yangi ota-ona xabarlari AI bilan tahlil qilinadi
+(07:00–22:00)        → muammo chiqsa adminlarga DARHOL xabar 🔔
       ↓
-08:00 (ertasi)     Barcha muammolar bitta hisobotda owner + adminlarga
+23:00                Har guruh tekshiriladi → vazifa yo'qmi? → muammo
+      ↓
+08:00 (ertasi)       Kunlik to'liq hisobot owner + adminlarga
+      ↓
+Dushanba 08:15       O'qituvchilar haftalik reytingi
 ```
+
+Vazifa tekshiruvi ataylab faqat kechqurun: o'qituvchi kun davomida yuborishi
+mumkin, erta tekshirish soxta "vazifa yo'q" muammosini keltirib chiqaradi.
 
 Vazifa yuborilmagani ham **muammo** sifatida hisobotga tushadi.
 
@@ -49,6 +56,8 @@ npm start
 | `OPENAI_MODEL` | `gpt-5.4-nano` — eng arzon (standart) |
 | `TIMEZONE` | `Asia/Tashkent` — "shu kun" va jadval shunga bog'liq |
 | `HOMEWORK_CHECK_CRON` | `0 23 * * 1-6` — kechqurun tekshiruv |
+| `QUICK_CHECK_CRON` | `*/30 * * * 1-6` — yarim soatlik tahlil |
+| `QUIET_HOURS_END` / `QUIET_HOURS_START` | `7` / `22` — tunda xabar yuborilmaydi |
 | `REPORT_CRON` | `0 8 * * 1-6` — ertalabki hisobot |
 | `TEACHER_REPORT_CRON` | `15 8 * * 1` — dushanba, o'qituvchilar reytingi |
 
@@ -142,6 +151,41 @@ Adminlar ertalabki hisobotni avtomatik oladi.
 | `/runcheck` | Tekshiruvni darhol ishga tushirish |
 | `/cleanup` | Ishlamaydigan guruh yozuvlarini tozalash |
 
+## Shoshilinch xabarlar
+
+Har 30 daqiqada (07:00–22:00, yakshanbadan tashqari) yangi ota-ona xabarlari
+tahlil qilinadi. Muammo topilsa owner va adminlarga darhol boradi:
+
+```
+🔔 Yangi muammolar (2)
+
+🆘 5-A sinf — Nodira
+   O'qituvchining bolaga baqirishi, qo'pol muomala
+   14:35
+
+🟡 6-B sinf — Jahongir
+   Ovqat sovuq berilgani bo'yicha norozilik
+   14:52
+```
+
+Bir xabarda eng ko'pi 10 muammo, jiddiyligi bo'yicha tartiblangan.
+
+### Takrorlanmaydi
+
+`Issue.reported` bayrog'i bir marta yuborilgan muammoni belgilaydi. Shu sabab:
+
+- bir muammo ikki marta shoshilinch xabar sifatida kelmaydi
+- ertalabki hisobotda esa **barcha** kunlik muammolar ko'rinadi
+
+### Xarajat oshmaydi
+
+Har xabar AI ga **faqat bir marta** boradi — `analyzed` va `questionChecked`
+bayroqlari buni ta'minlaydi. Tez-tez ishga tushirish so'rovlarni maydalaydi,
+umumiy token sarfi deyarli o'zgarmaydi.
+
+Sinovda tasdiqlangan: uchinchi marta ishga tushirilganda AI ga `0 xabar`
+yuborildi.
+
 ## O'qituvchilar reytingi
 
 Har dushanba 08:15 da o'tgan hafta bo'yicha avtomatik keladi; istalgan paytda
@@ -206,6 +250,7 @@ src/
     Issue.js                  topilgan muammolar
   services/
     roleService.js            rollarni boshqarish
+    alertService.js           shoshilinch xabarlar (har 30 daqiqada)
     teacherService.js         o'qituvchi reytingi va javob moslashtirish
     collectorService.js       xabarlarni yig'ish
     aiService.js              AI tahlil (vazifa va shikoyat)
