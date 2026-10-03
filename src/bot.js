@@ -10,8 +10,11 @@ function createBot() {
     rateLimit: { global: 30, perChat: 1 },
   });
 
-  // Tartib muhim: logger -> yig'uvchi -> buyruqlar -> qolgan xabarlar
+  // Tartib muhim: logger -> a'zolik -> yig'uvchi -> buyruqlar -> qolganlar
   middleware.register(bot);
+  // A'zolik o'zgarishi (guruhdan chiqarish/qo'shish) — alohida yangilik turi,
+  // xabarlar zanjiriga aralashmaydi
+  messages.registerMembership(bot);
   messages.registerCollector(bot);
   commands.register(bot);
   messages.registerHandlers(bot);

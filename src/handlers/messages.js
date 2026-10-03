@@ -1,3 +1,4 @@
+const Group = require("../models/Group");
 const collectorService = require("../services/collectorService");
 const roleService = require("../services/roleService");
 const logger = require("../utils/logger");
@@ -29,6 +30,76 @@ function registerCollector(bot) {
     }
 
     await next();
+  });
+}
+
+/**
+ * Botning guruhlardagi a'zoligi o'zgarishini kuzatadi.
+ *
+ * Telegram buni `my_chat_member` yangiligi orqali xabar qiladi — guruhdan
+ * chiqarilganda, qayta qo'shilganda, admin qilinganda. Busiz bot guruhdan
+ * chiqarilganini sezmaydi va o'sha guruhni nazoratda deb hisoblab,
+ * har kuni "vazifa yuborilmagan" muammosini yozaveradi.
+ *
+ * MUHIM: bu yangilik turi polling'da standart holda KELMAYDI — uni
+ * `allowedUpdates` ro'yxatida alohida so'rash kerak (index.js ga qarang).
+ */
+function registerMembership(bot) {
+  bot.on("my_chat_member", async (ctx) => {
+    const update = ctx.update.my_chat_member;
+    const chat = update?.chat;
+    if (!chat || chat.type === "private") return;
+
+    const status = update.new_chat_member?.status;
+    // "left" — chiqarilgan/chiqib ketgan, "kicked" — bloklangan
+    const removed = status === "left" || status === "kicked";
+
+    if (removed) {
+      await Group.findOneAndUpdate(
+        { chatId: chat.id },
+        { $set: { isActive: false, isMonitored: false } }
+      );
+      logger.warn(
+        `Bot guruhdan chiqarildi: "${chat.title || chat.id}" (${chat.id}) — nazoratdan olindi`
+      );
+      return;
+    }
+
+    // Qayta qo'shildi yoki admin qilindi
+    const isAdmin = status === "administrator";
+    await Group.findOneAndUpdate(
+      { chatId: chat.id },
+      {
+        $set: {
+          title: chat.title || "",
+          type: chat.type,
+          isActive: true,
+          isMonitored: true,
+        },
+      },
+      { upsert: true, setDefaultsOnInsert: true }
+    );
+
+    logger.info(
+      `Bot guruhga qo'shildi: "${chat.title || chat.id}" (${chat.id}), status=${status}`
+    );
+
+    // Admin bo'lmasa, bot xabarlarni to'liq ko'ra olmaydi
+    if (!isAdmin) {
+      try {
+        await ctx.api.sendMessage({
+          chat_id: chat.id,
+          text:
+            "Salom! Men maktab nazorat botiman. 👁\n\n" +
+            "Bu guruh nazoratga olindi.\n\n" +
+            "<b>Muhim:</b> barcha xabarlarni ko'rishim uchun meni " +
+            "<b>admin</b> qilib belgilang.",
+          parse_mode: "HTML",
+        });
+      } catch (err) {
+        logger.error("Guruhga salom yuborilmadi:", err.message);
+      }
+    }
   });
 }
 
@@ -67,4 +138,4 @@ function registerHandlers(bot) {
   });
 }
 
-module.exports = { registerCollector, registerHandlers };
+module.exports = { registerCollector, registerMembership, registerHandlers };

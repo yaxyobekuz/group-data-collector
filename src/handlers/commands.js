@@ -399,11 +399,17 @@ function register(bot) {
     const unreachable = [];
 
     for (const group of groups) {
+      // Bot chiqarilgani aniq bo'lsa (my_chat_member kelgan), Telegram dan
+      // so'ramaymiz ham — javob baribir "chat not found" bo'ladi
+      if (group.isActive === false) {
+        unreachable.push({ ...group, knownRemoved: true });
+        continue;
+      }
       try {
         await ctx.api.getChat({ chat_id: group.chatId });
         alive.push(group);
       } catch {
-        unreachable.push(group);
+        unreachable.push({ ...group, knownRemoved: false });
       }
     }
 
@@ -424,20 +430,25 @@ function register(bot) {
         counts.push({ group: g, msgs });
       }
 
-      lines.push(`⚠️ <b>Bog'lanib bo'lmadi (${unreachable.length})</b>`);
+      lines.push(`⚠️ <b>Nazoratda emas (${unreachable.length})</b>`);
       for (const { group, msgs } of counts) {
         lines.push(
-          `   • ${escapeHtml(group.title || group.chatId)} — <code>${group.chatId}</code>`,
-          `     ${msgs} ta xabar`
+          `   ${group.knownRemoved ? "🚪" : "❓"} ${escapeHtml(group.title || group.chatId)} — <code>${group.chatId}</code>`,
+          `     ${msgs} ta xabar` +
+            (group.knownRemoved
+              ? " · <b>bot chiqarilgan</b>"
+              : " · bog'lanib bo'lmadi")
         );
       }
       lines.push(
         "",
-        "Bu ikki narsani bildirishi mumkin:",
-        "• guruh supergruppaga o'tgan (eski yozuv — o'chirsa bo'ladi)",
-        "• <b>bot guruhdan chiqarilgan</b> (guruh tirik — o'chirmang!)",
+        "🚪 — bot guruhdan chiqarilgan. Guruh tirik bo'lishi mumkin;",
+        "   botni qayta qo'shsangiz nazorat o'z-o'zidan tiklanadi.",
         "",
-        "Ishonchingiz komil bo'lsa: <code>/forget CHATID</code>"
+        "❓ — sabab noma'lum: guruh supergruppaga o'tgan bo'lishi mumkin",
+        "   (eski yozuv), yoki bot ancha oldin chiqarilgan.",
+        "",
+        "Yozuvni butunlay o'chirish: <code>/forget CHATID</code>"
       );
     } else {
       lines.push("Barcha guruhlar bilan bog'lanish bor.");

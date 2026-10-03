@@ -317,7 +317,29 @@ kechqurungi tekshiruv vazifani ko'rmay "yubormagan" deb hisobot berardi.
 Shuning uchun `setRole()` **o'sha kungi** xabarlarning rolini ham yangilaydi
 ([roleService.js](src/services/roleService.js)). O'tgan kunlarga tegilmaydi.
 
-### 6. Guruh supergruppaga o'tkazilganda
+### 6. Bot guruhdan chiqarilganda
+
+Telegram buni `my_chat_member` yangiligi orqali xabar qiladi. Bot buni tutib,
+guruhni `isActive: false` va `isMonitored: false` qiladi — shundan keyin u
+tekshirilmaydi va hisobotga tushmaydi.
+
+Botni qayta qo'shsangiz nazorat **o'z-o'zidan tiklanadi** — hech narsa
+qilish shart emas.
+
+> ⚠️ **MUHIM:** `my_chat_member` polling'da standart holda **kelmaydi**.
+> [index.js](index.js) dagi `ALLOWED_UPDATES` ro'yxatida alohida so'raladi:
+> ```js
+> const ALLOWED_UPDATES = ["message", "edited_message", "my_chat_member"];
+> ```
+> Busiz bot chiqarilganini sezmaydi va har kuni soxta "vazifa yuborilmagan"
+> muammosini yozaveradi. Bu webhook rejimida ham `setWebhook` ga beriladi.
+
+`/cleanup` endi sababni aniq ko'rsatadi:
+
+- 🚪 **bot chiqarilgan** — aniq ma'lum (`my_chat_member` kelgan)
+- ❓ **noma'lum** — supergruppaga o'tgan yoki bot ancha oldin chiqarilgan
+
+### 7. Guruh supergruppaga o'tkazilganda
 
 Telegram guruhni supergruppaga o'tkazganda **chatId ni o'zgartiradi**. Bot
 buni sezmasa, bitta guruh bazada ikki marta turadi va tekshiruvda ikki marta

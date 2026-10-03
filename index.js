@@ -6,6 +6,15 @@ const scheduler = require("./src/services/scheduler");
 const aiService = require("./src/services/aiService");
 const logger = require("./src/utils/logger");
 
+/**
+ * Botga kerak bo'lgan yangilik turlari.
+ *
+ * MUHIM: `my_chat_member` standart ro'yxatga KIRMAYDI — uni alohida so'rash
+ * kerak. Busiz bot guruhdan chiqarilganini sezmaydi va o'sha guruhni
+ * nazoratda deb hisoblab, har kuni soxta "vazifa yuborilmagan" yozaveradi.
+ */
+const ALLOWED_UPDATES = ["message", "edited_message", "my_chat_member"];
+
 const COMMANDS = [
   { command: "start", description: "Boshlash" },
   { command: "help", description: "Yordam" },
@@ -59,6 +68,7 @@ async function main() {
     await bot.api.setWebhook({
       url: config.webhookUrl,
       secret_token: config.webhookSecret || undefined,
+      allowed_updates: ALLOWED_UPDATES,
     });
     logger.info(`Webhook o'rnatildi: ${config.webhookUrl}`);
 
@@ -69,7 +79,7 @@ async function main() {
     });
   } else {
     await bot.api.deleteWebhook({ drop_pending_updates: false });
-    await run(bot, { timeout: 30 });
+    await run(bot, { timeout: 30, allowedUpdates: ALLOWED_UPDATES });
   }
 
   logger.info("Bot to'xtadi");
